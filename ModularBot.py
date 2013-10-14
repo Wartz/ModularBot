@@ -1,4 +1,4 @@
-import chatlings
+import plugins
 import threading
 
 import sleekxmpp
@@ -32,8 +32,8 @@ class ModularBot(sleekxmpp.ClientXMPP):
 		
 	def load_modules(self):
 		
-		for i in chatlings.classDictionary:
-			real_thing=chatlings.classDictionary[i](self)
+		for i in plugins.classDictionary:
+			real_thing=plugins.classDictionary[i](self)
 			print real_thing
 			
 			if real_thing.callable:
