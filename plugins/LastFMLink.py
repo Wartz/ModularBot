@@ -1,7 +1,5 @@
 import pylast
 
-
-
 class LastFMLink:
 	def __init__(self,parent):
 		self.parent=parent
@@ -43,23 +41,25 @@ class LastFMLink:
 		for i in self.tracked:
 			if i[0]==jName:
 				return
-		print "Now tracking "+jName+"@"+user+" on lastFM"
 		self.tracked.append([jName,self.network.get_user(user),None])
 		
-	def message(self,msg):
+	def help(self,admin):
+		if self.active:
+			return "!lastfm [name] - If sent in PM, tracks your account [name] on Last.FM\n"
+		return ""
+		
+	def message(self,msg,admin):
 		if msg["type"]=="chat":
 			
 			if msg["body"].lower().startswith("!lastfm "):
 				try:
 					s=msg["body"].split(" ")[1]
-					self.track_user(s,self.jid2nick(msg["from"]))
-					print self.tracked
+					self.track_user(s,msg["mucnick"])
 				except IndexError:
 					pass
 		
 										
 	def check_user(self,user_data):
-		print user_data[0], user_data[1]
 		try:
 			new_track=user_data[1].get_now_playing()
 			if not new_track is None:
@@ -79,7 +79,3 @@ class LastFMLink:
 				except:
 					pass
 				self.tracked.append(user_data)
-			
-if __name__=="__main__":
-	print emote_clean(":bort::bort::bort: wrods")
-	raw_input()

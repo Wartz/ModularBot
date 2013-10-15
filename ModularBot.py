@@ -28,6 +28,8 @@ class ModularBot(sleekxmpp.ClientXMPP):
 		self.jidList={}
 		
 		self.load_modules()
+		
+		print "Hello"
 
 		self.add_event_handler("groupchat_presence", self.updateJIDs)
 		self.add_event_handler("session_start", self.start)
@@ -38,72 +40,87 @@ class ModularBot(sleekxmpp.ClientXMPP):
 	def updateJIDs(self,msg):
 		if msg["type"]=="available":
 			if not msg["mucnick"] in self.jidList.keys():
-				self.jidList[msg["mucnick"]]=True
+				self.jidList[str(msg["from"])]=True
 		elif msg["type"]!="subscribe":
-			print "REMOVING "+msg["mucnick"]+":"+str(msg["type"])
-			if msg["mucnick"] in self.jidList:
-				del self.jidList[msg["mucnick"]]
-				
-		print "-------------------"
+			if str(msg["from"]) in self.jidList:
+				del self.jidList[str(msg["from"])]
 			
 		
 	def load_modules(self):
 		
 		for i in plugins.classDictionary:
 			real_thing=plugins.classDictionary[i](self)
-			print real_thing
 			
 			if real_thing.messagable:
 				self.messagables[i]=real_thing
 			if real_thing.trackable:
 				self.trackables[i]=real_thing
+			print ":sun:"+i
 		
 	def start(self,arg):
 		self.send_presence()
 		r=self.get_roster()
 		self.plugin['xep_0045'].joinMUC(self.channel, self.nick, wait=False)
-		self.plugin['xep_0045'].joinMUC(self.channel, self.nick, wait=False)
 		
 	def msg_handler(self,msg):
 		
-		self.lock.acquire()
-		
-		if msg["type"]=="chat":
-			if msg["from"] in config.admins:
+		admin=False
+		if str(msg["from"]) in config.admins:
+			admin=True
+			if msg["type"]=="chat":
 				if msg["body"].lower().startswith("!enable"):
-					self.toggle(msg["body"][8:],False)
-					self.channel_message(msg["body"][9:]+" enabled!")
+					self.toggle(msg["mucnick"],msg["body"][8:],False)
+					self.channel_message(msg["body"][8:]+" enabled!")
 				if msg["body"].lower().startswith("!disable"):
-					self.toggle(msg["body"][9:],False)
+					self.toggle(msg["mucnick"],msg["body"][9:],False)
 					self.channel_message(msg["body"][9:]+" disabled!")
+					
+				if msg["body"].lower().startswith("!help"):
+					self.private_message(msg["from"],self.help(True))
+					
+		if msg["body"].lower().startswith("!help"):
+			self.private_message(msg["from"],self.help(False))
 		
 		for i in self.messagables:
 			messagable=self.messagables[i]
-			messagable.message(msg)
-		self.lock.release()
+			messagable.message(msg,admin)
 		
+	def help(self,admin):
+		s="\n"
+		for i in self.messagables.keys():
+			s+=self.messagables[i].help(admin)
+		return s
 			
 	def track_handler(self):
-		self.lock.acquire()
+		print "track"
 		for i in self.trackables:
 			trackable=self.trackables[i]
-			trackable.track()
-		self.lock.release()
+			try:
+				trackable.track()
+			except:
+				pass
 		
-	def toggle(self,name,toggle):
-		self.lock.acquire()
+	def toggle(self,admin,name,toggle):
+		b_1=b_2=toggle
+		
 		if name in self.messagables:
+			b_1=self.messagables[name].active
 			self.messagables[name].active=toggle
-			
+				
 		if name in self.trackables:
+			b_2=self.trackables[name].active
 			self.trackables[name].active=toggle
-		self.lock.release()		
+		
+		if not b_1 and not b_2 and toggle:
+			self.channel_message(admin+" enabled "+name+"!")
+		elif b_1 and b_2 and not toggle:
+			self.channel_message(admin+" disabled "+name+"!")
 				
 	def channel_message(self,content):
 		self.send_message(mto=self.channel,mbody=content,mtype="groupchat")
 		
 	def private_message(self,user,content):
-		self.send_message(mto=user,mbody=content,mtype="groupchat")
+		self.send_message(mto=user,mbody=content,mtype="chat")
 		
 if __name__=="__main__":
 	logging.basicConfig(format='%(levelname)-8s %(message)s')		

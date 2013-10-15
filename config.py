@@ -1,9 +1,9 @@
 jid="PollBot@Eurosquad.co.uk/Experimental Technology"
 password="A1gg24Dtxg"
 
-nick="PollBot"
+nick="ShibeBot"
 
-channel="eurosquad@chat.eurosquad.co.uk"
+channel="general@chat.pleaseignore.com"
 
 excluded=["pollbot","eurobot"]
 
@@ -11,7 +11,7 @@ tiebreaker="eurobot"
 
 server="eurosquad.co.uk"
 
-admins=["Syreniac"]
+admins=["syreniac@pleaseignore.com/EVE Capable Computer"]
 
 banned_subreddits=["spacedicks","spaceclop","blackfathers","picsofdeadkids","sexwithdogs","gore","clopclop"]
 
