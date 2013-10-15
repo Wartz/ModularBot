@@ -1,5 +1,5 @@
 jid="PollBot@Eurosquad.co.uk/Experimental Technology"
-password="Nope"
+password="A1gg24Dtxg"
 
 nick="PollBot"
 
@@ -32,4 +32,4 @@ banned_subreddits=["spacedicks","spaceclop","blackfathers","picsofdeadkids","sex
 
 # banned_subreddits=["spacedicks","spaceclop"]
 
-reddit_password="Nope"
+reddit_password="A1gg24Dtxg"

@@ -1,6 +1,8 @@
 import plugins
 import threading
 
+import logging
+
 import sleekxmpp
 
 import inspect
@@ -18,17 +20,32 @@ class ModularBot(sleekxmpp.ClientXMPP):
 		self.nick = nick
 		self.channel = channel
 		
-		self.callLock=threading.Lock()
-		self.callables={}
+		self.lock=threading.Lock()
+		self.messagables={}
 		
-		self.trackLock=threading.Lock()
 		self.trackables={}
+		
+		self.jidList={}
 		
 		self.load_modules()
 
-		#self.add_event_handler("groupchat_presence", self.updateJIDs)
+		self.add_event_handler("groupchat_presence", self.updateJIDs)
 		self.add_event_handler("session_start", self.start)
-		self.add_event_handler("message", self.call_handler)
+		self.add_event_handler("message", self.msg_handler)
+		
+		self.scheduler.add("Tracking",5.0,self.track_handler,repeat=True)
+		
+	def updateJIDs(self,msg):
+		if msg["type"]=="available":
+			if not msg["mucnick"] in self.jidList.keys():
+				self.jidList[msg["mucnick"]]=True
+		elif msg["type"]!="subscribe":
+			print "REMOVING "+msg["mucnick"]+":"+str(msg["type"])
+			if msg["mucnick"] in self.jidList:
+				del self.jidList[msg["mucnick"]]
+				
+		print "-------------------"
+			
 		
 	def load_modules(self):
 		
@@ -36,61 +53,51 @@ class ModularBot(sleekxmpp.ClientXMPP):
 			real_thing=plugins.classDictionary[i](self)
 			print real_thing
 			
-			if real_thing.callable:
-				self.callables[i]=real_thing
+			if real_thing.messagable:
+				self.messagables[i]=real_thing
 			if real_thing.trackable:
 				self.trackables[i]=real_thing
-					
-
-			
-		print self.callables
-		print self.trackables
 		
-	def start(self):
+	def start(self,arg):
 		self.send_presence()
 		r=self.get_roster()
 		self.plugin['xep_0045'].joinMUC(self.channel, self.nick, wait=False)
+		self.plugin['xep_0045'].joinMUC(self.channel, self.nick, wait=False)
 		
-	def call_handler(self,msg):
+	def msg_handler(self,msg):
 		
-		self.callLock.acquire()
+		self.lock.acquire()
+		
 		if msg["type"]=="chat":
 			if msg["from"] in config.admins:
-				if msg["body"].lower().startswith("!load"):
-					self.load(msg["body"])
+				if msg["body"].lower().startswith("!enable"):
+					self.toggle(msg["body"][8:],False)
+					self.channel_message(msg["body"][9:]+" enabled!")
+				if msg["body"].lower().startswith("!disable"):
+					self.toggle(msg["body"][9:],False)
+					self.channel_message(msg["body"][9:]+" disabled!")
 		
-		for i in self.callables:
-			callable=self.callables[i]
-			callable(msg)
-		self.callLock.release()
+		for i in self.messagables:
+			messagable=self.messagables[i]
+			messagable.message(msg)
+		self.lock.release()
 		
 			
 	def track_handler(self):
-		self.trackLock.acquire()
-		try:
-			self.trackerLock.acquire()
-			i=self.trackers.pop(0)
-			i()
-			self.trackers.append(i)
-				
-			self.LastFM()
-			self.trackerLock.release()
-		finally:
-			pass
-		self.trackLock.release()
+		self.lock.acquire()
+		for i in self.trackables:
+			trackable=self.trackables[i]
+			trackable.track()
+		self.lock.release()
+		
+	def toggle(self,name,toggle):
+		self.lock.acquire()
+		if name in self.messagables:
+			self.messagables[name].active=toggle
 			
-	def load(self,name):
-		if name in chatlings.modules.keys():
-			module=chatlings.modules[name]
-			
-			if module.callable:
-				self.callLock.acquire()
-				self.callables[name]=module.add(self)
-				self.callLock.release()
-			if module.trackable:
-				self.trackLock.acquire()
-				self.trackables[name]=module.add(self)
-				self.trackLock.release()
+		if name in self.trackables:
+			self.trackables[name].active=toggle
+		self.lock.release()		
 				
 	def channel_message(self,content):
 		self.send_message(mto=self.channel,mbody=content,mtype="groupchat")
@@ -98,15 +105,19 @@ class ModularBot(sleekxmpp.ClientXMPP):
 	def private_message(self,user,content):
 		self.send_message(mto=user,mbody=content,mtype="groupchat")
 		
-mb=ModularBot(config.jid,config.password,"ModularBot",config.channel)
-mb.register_plugin('xep_0030')	 # Service discovery.
-mb.register_plugin('xep_0045')	 # MUC support.
-mb.register_plugin('xep_0199')	 # XMPP Ping
-mb.ssl_version = ssl.PROTOCOL_SSLv3
+if __name__=="__main__":
+	logging.basicConfig(format='%(levelname)-8s %(message)s')		
+			
+	mb=ModularBot(config.jid,config.password,config.nick,config.channel)
+	mb.register_plugin('xep_0030')	 # Service discovery.
+	mb.register_plugin('xep_0045')	 # MUC support.
+	mb.register_plugin('xep_0199')	 # XMPP Ping
+	mb.ssl_version = ssl.PROTOCOL_SSLv3
 
-if mb.connect((config.server,5222)):
-	mb.process(block=True)
-else:
-	print "Failed to connect."
-	exit()
+	if mb.connect((config.server,5222)):
+		print "Attempting to connect"
+		mb.process(block=True)
+	else:
+		print "Failed to connect."
+		exit()
 		
